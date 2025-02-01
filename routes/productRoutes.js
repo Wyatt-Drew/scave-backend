@@ -11,9 +11,9 @@ router.get('/GetProduct', async (req, res) => {
             return res.status(400).json({ error: "Search term is required" });
         }
 
-        // Find products whose name contains the search term (case insensitive)
+        // Find products using the optimized `search_terms` field
         const products = await Product.find({
-            product_name: { $regex: search, $options: 'i' }
+            search_terms: search.toLowerCase() // Ensure case-insensitive search
         });
 
         if (!products.length) {
