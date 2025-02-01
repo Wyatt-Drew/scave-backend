@@ -47,15 +47,18 @@ router.get('/GetProduct', async (req, res) => {
             return acc;
         }, {});
 
-        // Fetch product details by product_num for better lookup
-        const productDetails = await Product.find({ product_num: { $in: productNums } });
+        // Fetch product details again but only selecting required fields (efficient lookup)
+        const productDetails = await Product.find(
+            { product_num: { $in: productNums } },
+            { product_num: 1, product_name: 1, product_brand: 1, product_link: 1, image_url: 1, description: 1 }
+        );
 
         // Create a lookup for product details
         const productMap = productDetails.reduce((acc, product) => {
             acc[product.product_num] = {
                 product_name: product.product_name,
                 product_brand: product.product_brand,
-                product_link: product.product_link,
+                product_link: product.product_link, // Ensures product link is included
                 image_url: product.image_url,
                 description: product.description
             };
@@ -73,7 +76,7 @@ router.get('/GetProduct', async (req, res) => {
                 store_name: storeName,
                 product_name: productInfo.product_name || "Unknown Product",
                 product_brand: productInfo.product_brand || "Unknown Brand",
-                product_link: productInfo.product_link || "",
+                product_link: productInfo.product_link || "", // Now properly included
                 image_url: productInfo.image_url || "",
                 description: productInfo.description || "",
                 latest_price: price.latest_price,
