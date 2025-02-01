@@ -11,9 +11,9 @@ router.get('/GetProduct', async (req, res) => {
             return res.status(400).json({ error: "Search term is required" });
         }
 
-        // Find products using the optimized `search_terms` field
+        // Find products using search_terms array
         const products = await Product.find({
-            search_terms: search.toLowerCase() // Ensure case-insensitive search
+            search_terms: search.toLowerCase() // Convert search term to lowercase
         });
 
         if (!products.length) {
@@ -25,17 +25,34 @@ router.get('/GetProduct', async (req, res) => {
         // Find latest price for each product_num and store_num combination
         const latestPrices = await Price.aggregate([
             { $match: { product_num: { $in: productNums } } },
-            { $sort: { updated_at: -1 } }, // Sort descending by updated_at
+            { $sort: { date: -1 } }, // Sort descending by date (most recent first)
             {
                 $group: {
                     _id: { product_num: "$product_num", store_num: "$store_num" },
-                    latest_price: { $first: "$price" },
-                    updated_at: { $first: "$updated_at" }
+                    latest_price: { $first: "$amount" }, // Use `amount` field for price
+                    latest_date: { $first: "$date" }, // Get the latest date
+                    unit: { $first: "$unit" } // Include unit information
                 }
             }
         ]);
 
-        res.json(latestPrices);
+        // Join product details with latest prices
+        const response = latestPrices.map(price => {
+            const product = products.find(p => p.product_num === price._id.product_num);
+            return {
+                product_num: price._id.product_num,
+                store_num: price._id.store_num,
+                product_name: product.product_name,
+                product_brand: product.product_brand,
+                product_link: product.product_link,
+                image_url: product.image_url,
+                latest_price: price.latest_price,
+                latest_date: price.latest_date,
+                unit: price.unit
+            };
+        });
+
+        res.json(response);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Server error" });
