@@ -47,19 +47,35 @@ router.get('/GetProduct', async (req, res) => {
             return acc;
         }, {});
 
+        // Fetch product details by product_num for better lookup
+        const productDetails = await Product.find({ product_num: { $in: productNums } });
+
+        // Create a lookup for product details
+        const productMap = productDetails.reduce((acc, product) => {
+            acc[product.product_num] = {
+                product_name: product.product_name,
+                product_brand: product.product_brand,
+                product_link: product.product_link,
+                image_url: product.image_url,
+                description: product.description
+            };
+            return acc;
+        }, {});
+
         // Join product details with latest prices and store details
         const response = latestPrices.map(price => {
-            const product = products.find(p => p.product_num === price._id.product_num);
+            const productInfo = productMap[price._id.product_num] || {};
             const storeName = storeMap[price._id.store_num] || "Unknown Store"; // Default if not found
 
             return {
                 product_num: price._id.product_num,
                 store_num: price._id.store_num,
                 store_name: storeName,
-                product_name: product.product_name,
-                product_brand: product.product_brand,
-                product_link: product.product_link,
-                image_url: product.image_url,
+                product_name: productInfo.product_name || "Unknown Product",
+                product_brand: productInfo.product_brand || "Unknown Brand",
+                product_link: productInfo.product_link || "",
+                image_url: productInfo.image_url || "",
+                description: productInfo.description || "",
                 latest_price: price.latest_price,
                 latest_date: price.latest_date,
                 unit: price.unit
