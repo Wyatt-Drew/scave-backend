@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const Price = require('../models/Price');
+const Store = require('../models/Store');
 
 router.get('/GetProduct', async (req, res) => {
     try {
@@ -36,12 +37,25 @@ router.get('/GetProduct', async (req, res) => {
             }
         ]);
 
-        // Join product details with latest prices
+        // Fetch store details for unique store_nums
+        const storeNums = [...new Set(latestPrices.map(p => p._id.store_num))];
+        const stores = await Store.find({ store_num: { $in: storeNums } });
+
+        // Create a lookup for store names
+        const storeMap = stores.reduce((acc, store) => {
+            acc[store.store_num] = store.store_name;
+            return acc;
+        }, {});
+
+        // Join product details with latest prices and store details
         const response = latestPrices.map(price => {
             const product = products.find(p => p.product_num === price._id.product_num);
+            const storeName = storeMap[price._id.store_num] || "Unknown Store"; // Default if not found
+
             return {
                 product_num: price._id.product_num,
                 store_num: price._id.store_num,
+                store_name: storeName,
                 product_name: product.product_name,
                 product_brand: product.product_brand,
                 product_link: product.product_link,
