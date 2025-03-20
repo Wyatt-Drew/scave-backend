@@ -1,10 +1,12 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const Product = require('../models/Product');
-const Price = require('../models/Price');
-const Store = require('../models/Store');
+const Product = require("../models/Product");
+const Price = require("../models/Price");
+const Store = require("../models/Store");
+const BasketPrice = require("../models/BasketPrice"); // ✅ Ensure this model exists!
 
-router.get('/GetProduct', async (req, res) => {
+// ✅ Get Product API
+router.get('/products/GetProduct', async (req, res) => {
     try {
         const { search } = req.query;
 
@@ -14,7 +16,7 @@ router.get('/GetProduct', async (req, res) => {
 
         // Find products using search_terms array
         const products = await Product.find({
-            search_terms: search.toLowerCase() // Convert search term to lowercase
+            search_terms: search.toLowerCase() 
         });
 
         if (!products.length) {
@@ -26,13 +28,13 @@ router.get('/GetProduct', async (req, res) => {
         // Find latest price for each product_num and store_num combination
         const latestPrices = await Price.aggregate([
             { $match: { product_num: { $in: productNums } } },
-            { $sort: { date: -1 } }, // Sort descending by date (most recent first)
+            { $sort: { date: -1 } },
             {
                 $group: {
                     _id: { product_num: "$product_num", store_num: "$store_num" },
-                    latest_price: { $first: "$amount" }, // Use `amount` field for price
-                    latest_date: { $first: "$date" }, // Get the latest date
-                    unit: { $first: "$unit" } // Include unit information
+                    latest_price: { $first: "$amount" },
+                    latest_date: { $first: "$date" },
+                    unit: { $first: "$unit" }
                 }
             }
         ]);
@@ -58,7 +60,7 @@ router.get('/GetProduct', async (req, res) => {
             acc[product.product_num] = {
                 product_name: product.product_name,
                 product_brand: product.product_brand,
-                product_link: product.product_link, // Ensures product link is included
+                product_link: product.product_link,
                 image_url: product.image_url,
                 description: product.description
             };
@@ -68,7 +70,7 @@ router.get('/GetProduct', async (req, res) => {
         // Join product details with latest prices and store details
         const response = latestPrices.map(price => {
             const productInfo = productMap[price._id.product_num] || {};
-            const storeName = storeMap[price._id.store_num] || "Unknown Store"; // Default if not found
+            const storeName = storeMap[price._id.store_num] || "Unknown Store";
 
             return {
                 product_num: price._id.product_num,
@@ -76,7 +78,7 @@ router.get('/GetProduct', async (req, res) => {
                 store_name: storeName,
                 product_name: productInfo.product_name || "Unknown Product",
                 product_brand: productInfo.product_brand || "Unknown Brand",
-                product_link: productInfo.product_link || "", // Now properly included
+                product_link: productInfo.product_link || "",
                 image_url: productInfo.image_url || "",
                 description: productInfo.description || "",
                 latest_price: price.latest_price,
@@ -87,19 +89,18 @@ router.get('/GetProduct', async (req, res) => {
 
         res.json(response);
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error fetching products:", error);
         res.status(500).json({ error: "Server error" });
     }
 });
 
-
-// 🆕 Get basket prices for the last 15 weeks, grouped by store
-router.get("/GetBasketPrices", async (req, res) => {
+// ✅ Get Basket Prices API
+router.get("/baskets/GetBasketPrices", async (req, res) => {
     try {
         // ✅ Calculate the date range for the last 15 weeks
         const today = new Date();
         const fifteenWeeksAgo = new Date();
-        fifteenWeeksAgo.setDate(today.getDate() - 15 * 7); // 15 weeks back
+        fifteenWeeksAgo.setDate(today.getDate() - 15 * 7);
 
         console.log(`🔍 Fetching basket prices from ${fifteenWeeksAgo.toISOString()} to ${today.toISOString()}`);
 
@@ -110,9 +111,7 @@ router.get("/GetBasketPrices", async (req, res) => {
                     uploaded_at: { $gte: fifteenWeeksAgo, $lte: today }
                 }
             },
-            { 
-                $sort: { uploaded_at: -1 } // Latest first
-            },
+            { $sort: { uploaded_at: -1 } },
             { 
                 $group: {
                     _id: { store_num: "$store_num", weekStart: "$weekStart", weekEnd: "$weekEnd" },
@@ -130,7 +129,7 @@ router.get("/GetBasketPrices", async (req, res) => {
                     latest_upload: 1
                 }
             },
-            { $sort: { store_num: 1, weekStart: -1 } } // Sort by store, then by date
+            { $sort: { store_num: 1, weekStart: -1 } }
         ]);
 
         if (!basketPrices.length) {
@@ -143,8 +142,5 @@ router.get("/GetBasketPrices", async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 });
-
-
-
 
 module.exports = router;
