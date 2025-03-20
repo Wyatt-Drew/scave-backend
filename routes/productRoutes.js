@@ -21,14 +21,39 @@ router.get("/prices/GetProductHistory", async (req, res) => {
 
         console.log(`📅 Date Range: ${fifteenWeeksAgo.toISOString()} - ${today.toISOString()}`);
 
-        // ✅ Query `prices` collection for raw data (not averages)
-        const priceHistory = await Price.find(
+        // ✅ Query `prices` collection for all store numbers separately
+        const priceHistory = await Price.aggregate([
             { 
-                product_num: product_num,
-                date: { $gte: fifteenWeeksAgo, $lte: today }
+                $match: { 
+                    product_num: product_num,
+                    date: { $gte: fifteenWeeksAgo, $lte: today }
+                }
             },
-            { store_num: 1, date: 1, amount: 1, price_per_unit: 1, unit: 1, _id: 0 } // ✅ Return raw price data
-        ).sort({ store_num: 1, date: -1 }); // ✅ Sort by store, then date
+            { 
+                $sort: { store_num: 1, date: -1 } // ✅ Sort by store, then date (newest first)
+            },
+            { 
+                $group: {
+                    _id: { store_num: "$store_num", date: "$date" },
+                    amount: { $first: "$amount" },
+                    price_per_unit: { $first: "$price_per_unit" },
+                    unit: { $first: "$unit" }
+                }
+            },
+            { 
+                $project: {
+                    _id: 0,
+                    store_num: "$_id.store_num",
+                    date: "$_id.date",
+                    amount: 1,
+                    price_per_unit: 1,
+                    unit: 1
+                }
+            },
+            { 
+                $sort: { store_num: 1, date: -1 } // ✅ Final sort to ensure correct order
+            }
+        ]);
 
         console.log(`📊 Found ${priceHistory.length} price records`);
 
@@ -43,6 +68,7 @@ router.get("/prices/GetProductHistory", async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 });
+
 
 
 // ✅ Get Product API
