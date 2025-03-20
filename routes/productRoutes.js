@@ -97,7 +97,6 @@ router.get('/products/GetProduct', async (req, res) => {
 // ✅ Get Basket Prices API
 router.get("/baskets/GetBasketPrices", async (req, res) => {
     try {
-        // ✅ Calculate the date range for the last 15 weeks
         const today = new Date();
         const fifteenWeeksAgo = new Date();
         fifteenWeeksAgo.setDate(today.getDate() - 15 * 7);
