@@ -5,8 +5,6 @@ const Price = require("../models/Price");
 const Store = require("../models/Store");
 const BasketPrice = require("../models/BasketPrice"); // ✅ Ensure this model exists!
 
-
-// ✅ Get Product Prices for the Last 15 Weeks by Product Number
 router.get("/prices/GetProductHistory", async (req, res) => {
     try {
         const { product_num } = req.query;
@@ -19,40 +17,23 @@ router.get("/prices/GetProductHistory", async (req, res) => {
 
         const today = new Date();
         const fifteenWeeksAgo = new Date();
-        fifteenWeeksAgo.setDate(today.getDate() - 15 * 7);
+        fifteenWeeksAgo.setDate(today.getDate() - 15 * 7); // 15 weeks back
 
         console.log(`📅 Date Range: ${fifteenWeeksAgo.toISOString()} - ${today.toISOString()}`);
 
-        // ✅ Query `prices` collection for the last 15 weeks
-        const priceHistory = await Price.aggregate([
+        // ✅ Query `prices` collection for raw data (not averages)
+        const priceHistory = await Price.find(
             { 
-                $match: { 
-                    product_num: product_num,
-                    date: { $gte: fifteenWeeksAgo, $lte: today }
-                }
+                product_num: product_num,
+                date: { $gte: fifteenWeeksAgo, $lte: today }
             },
-            { 
-                $group: {
-                    _id: { store_num: "$store_num", week: { $week: "$date" } }, // Group by store and week
-                    average_price: { $avg: "$amount" },
-                    latest_date: { $max: "$date" }
-                }
-            },
-            { 
-                $project: {
-                    _id: 0,
-                    store_num: "$_id.store_num",
-                    week: "$_id.week",
-                    average_price: 1,
-                    latest_date: 1
-                }
-            },
-            { $sort: { store_num: 1, latest_date: -1 } } // Sort by store, then by latest date
-        ]);
+            { store_num: 1, date: 1, amount: 1, price_per_unit: 1, unit: 1, _id: 0 } // ✅ Return raw price data
+        ).sort({ store_num: 1, date: -1 }); // ✅ Sort by store, then date
 
         console.log(`📊 Found ${priceHistory.length} price records`);
 
         if (!priceHistory.length) {
+            console.log("⚠️ No price history found");
             return res.json({ message: "No price history found for this product." });
         }
 
@@ -62,7 +43,6 @@ router.get("/prices/GetProductHistory", async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 });
-
 
 
 // ✅ Get Product API
