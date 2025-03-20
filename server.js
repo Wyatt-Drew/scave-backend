@@ -5,9 +5,15 @@ const cors = require("cors");
 
 const app = express();
 
-// Middleware
+// ✅ Middleware
 app.use(express.json());
 app.use(cors());
+
+// ✅ Debugging: Log every incoming request
+app.use((req, res, next) => {
+    console.log(`➡️ Received request: ${req.method} ${req.url}`);
+    next();
+});
 
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -17,8 +23,8 @@ mongoose.connect(process.env.MONGO_URI, {
 .catch(err => console.error("❌ MongoDB connection error:", err));
 
 // ✅ Import Routes
-const productRoutes = require("./routes/productRoutes"); // This file contains all API routes
-app.use("/api", productRoutes); // ✅ Now all routes work under `/api`
+const productRoutes = require("./routes/productRoutes");  
+app.use("/api", productRoutes);  // ✅ Now all routes work under `/api`
 
 // ✅ Start the server
 const PORT = process.env.PORT || 5000;
