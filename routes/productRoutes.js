@@ -6,6 +6,64 @@ const Store = require("../models/Store");
 const BasketPrice = require("../models/BasketPrice"); // ✅ Ensure this model exists!
 
 
+// ✅ Get Product Prices for the Last 15 Weeks by Product Number
+router.get("/prices/GetProductHistory", async (req, res) => {
+    try {
+        const { product_num } = req.query;
+
+        if (!product_num) {
+            return res.status(400).json({ error: "Product number is required" });
+        }
+
+        console.log(`🔍 Fetching price history for product: ${product_num}`);
+
+        const today = new Date();
+        const fifteenWeeksAgo = new Date();
+        fifteenWeeksAgo.setDate(today.getDate() - 15 * 7);
+
+        console.log(`📅 Date Range: ${fifteenWeeksAgo.toISOString()} - ${today.toISOString()}`);
+
+        // ✅ Query `prices` collection for the last 15 weeks
+        const priceHistory = await Price.aggregate([
+            { 
+                $match: { 
+                    product_num: product_num,
+                    date: { $gte: fifteenWeeksAgo, $lte: today }
+                }
+            },
+            { 
+                $group: {
+                    _id: { store_num: "$store_num", week: { $week: "$date" } }, // Group by store and week
+                    average_price: { $avg: "$amount" },
+                    latest_date: { $max: "$date" }
+                }
+            },
+            { 
+                $project: {
+                    _id: 0,
+                    store_num: "$_id.store_num",
+                    week: "$_id.week",
+                    average_price: 1,
+                    latest_date: 1
+                }
+            },
+            { $sort: { store_num: 1, latest_date: -1 } } // Sort by store, then by latest date
+        ]);
+
+        console.log(`📊 Found ${priceHistory.length} price records`);
+
+        if (!priceHistory.length) {
+            return res.json({ message: "No price history found for this product." });
+        }
+
+        res.json(priceHistory);
+    } catch (error) {
+        console.error("❌ Error fetching product price history:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+
 
 // ✅ Get Product API
 router.get('/products/GetProduct', async (req, res) => {
