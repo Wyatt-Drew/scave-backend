@@ -92,4 +92,59 @@ router.get('/GetProduct', async (req, res) => {
     }
 });
 
+
+// 🆕 Get basket prices for the last 15 weeks, grouped by store
+router.get("/GetBasketPrices", async (req, res) => {
+    try {
+        // ✅ Calculate the date range for the last 15 weeks
+        const today = new Date();
+        const fifteenWeeksAgo = new Date();
+        fifteenWeeksAgo.setDate(today.getDate() - 15 * 7); // 15 weeks back
+
+        console.log(`🔍 Fetching basket prices from ${fifteenWeeksAgo.toISOString()} to ${today.toISOString()}`);
+
+        // ✅ Query the `basket_prices` collection
+        const basketPrices = await BasketPrice.aggregate([
+            { 
+                $match: { 
+                    uploaded_at: { $gte: fifteenWeeksAgo, $lte: today }
+                }
+            },
+            { 
+                $sort: { uploaded_at: -1 } // Latest first
+            },
+            { 
+                $group: {
+                    _id: { store_num: "$store_num", weekStart: "$weekStart", weekEnd: "$weekEnd" },
+                    basket_price: { $first: "$basket_price" },
+                    latest_upload: { $first: "$uploaded_at" }
+                }
+            },
+            { 
+                $project: {
+                    _id: 0,
+                    store_num: "$_id.store_num",
+                    weekStart: "$_id.weekStart",
+                    weekEnd: "$_id.weekEnd",
+                    basket_price: 1,
+                    latest_upload: 1
+                }
+            },
+            { $sort: { store_num: 1, weekStart: -1 } } // Sort by store, then by date
+        ]);
+
+        if (!basketPrices.length) {
+            return res.json({ message: "No basket prices found in the last 15 weeks." });
+        }
+
+        res.json(basketPrices);
+    } catch (error) {
+        console.error("❌ Error fetching basket prices:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+
+
+
 module.exports = router;
