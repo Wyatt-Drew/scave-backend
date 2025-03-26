@@ -171,31 +171,29 @@ router.get("/baskets/GetBasketPrices", async (req, res) => {
 
         // ✅ Query the `basket_prices` collection
         const basketPrices = await BasketPrice.aggregate([
-            { 
-                $match: { 
-                    uploaded_at: { $gte: fifteenWeeksAgo, $lte: today }
-                }
+            {
+              $match: {
+                date: { $gte: fifteenWeeksAgo, $lte: today }
+              }
             },
-            { $sort: { uploaded_at: -1 } },
-            { 
-                $group: {
-                    _id: { store_num: "$store_num", weekStart: "$weekStart", weekEnd: "$weekEnd" },
-                    basket_price: { $first: "$basket_price" },
-                    latest_upload: { $first: "$uploaded_at" }
-                }
+            {
+              $group: {
+                _id: { store_num: "$store_num", date: "$date" },
+                basket_price: { $first: "$basket_price" }
+              }
             },
-            { 
-                $project: {
-                    _id: 0,
-                    store_num: "$_id.store_num",
-                    weekStart: "$_id.weekStart",
-                    weekEnd: "$_id.weekEnd",
-                    basket_price: 1,
-                    latest_upload: 1
-                }
+            {
+              $project: {
+                _id: 0,
+                store_num: "$_id.store_num",
+                date: "$_id.date",
+                basket_price: 1
+              }
             },
-            { $sort: { store_num: 1, weekStart: -1 } }
-        ]);
+            {
+              $sort: { store_num: 1, date: -1 }
+            }
+          ]);
 
         if (!basketPrices.length) {
             return res.json({ message: "No basket prices found in the last 15 weeks." });
